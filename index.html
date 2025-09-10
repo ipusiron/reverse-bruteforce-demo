@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none';" />
+  <meta name="robots" content="index, follow" />
+  <meta name="description" content="Educational demonstration tool comparing brute-force, dictionary, and reverse brute-force (password spraying) attacks against account lockout policies." />
+  <title>Reverse Brute-force Demo - Educational Security Tool</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <button id="helpBtn" class="help-button" aria-label="ヘルプを開く">❓ ヘルプ</button>
+    <h1>Reverse Brute-force Demo</h1>
+    <p class="subtitle">
+      同一のロックアウト条件下で、<strong>通常のブルートフォース</strong>と<strong>リバースブルートフォース（パスワードスプレー）</strong>の「刺さり方の違い」を可視化します。
+    </p>
+  </header>
+
+  <main class="container">
+    <!-- 1) シミュレーション設定 -->
+    <section class="panel">
+      <h2>1) シミュレーション設定</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label for="userCount">ユーザー総数</label>
+          <input id="userCount" type="number" min="10" max="10000" value="200" />
+          <small>大量アカウントの環境を模擬（例: サービス全体）</small>
+        </div>
+
+        <div class="field">
+          <label for="weakRatio">弱いパスワード比率（%）</label>
+          <input id="weakRatio" type="number" min="0" max="100" value="35" />
+          <small>"123456" などの極弱パスワード利用率</small>
+        </div>
+
+        <div class="field">
+          <label for="lockoutEnabled">アカウントロックアウト</label>
+          <div class="toggle-group">
+            <input type="radio" id="lockoutOff" name="lockoutEnabled" value="off" checked />
+            <label for="lockoutOff" class="toggle-label">無効</label>
+            <input type="radio" id="lockoutOn" name="lockoutEnabled" value="on" />
+            <label for="lockoutOn" class="toggle-label">有効</label>
+          </div>
+          <small>ロックアウト機能の有無を切り替え</small>
+        </div>
+
+        <div class="field" id="lockoutSettings" style="display: none;">
+          <label for="lockoutThreshold">ロックアウト閾値（回）</label>
+          <input id="lockoutThreshold" type="number" min="1" max="20" value="3" />
+          <small>失敗回数が閾値以上でそのアカウントは一定時間ロック</small>
+        </div>
+
+        <div class="field" id="lockoutTimeSettings" style="display: none;">
+          <label for="lockoutWindowSec">ロックアウト時間（秒）</label>
+          <input id="lockoutWindowSec" type="number" min="1" max="3600" value="60" />
+          <small>ロック時間中は当該アカウントへの試行が拒否される</small>
+        </div>
+
+        <div class="field">
+          <label for="rate">試行レート（req/秒）</label>
+          <input id="rate" type="number" min="1" max="5000" value="200" />
+          <small>攻撃者の送出速度（概算）</small>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnSeed">環境を生成</button>
+        <span id="seedStatus" class="status" aria-live="polite">未生成</span>
+      </div>
+
+      <div id="envStats" class="env-stats hide" aria-live="polite"></div>
+    </section>
+
+    <!-- 2) 攻撃モード -->
+    <section class="panel">
+      <h2>2) 攻撃モード</h2>
+
+      <div class="tabs" role="tablist" aria-label="attack-modes">
+        <button class="tab active" data-tab="bf" role="tab" aria-selected="true">ブルートフォース（総当たり）</button>
+        <button class="tab" data-tab="dict" role="tab" aria-selected="false">辞書攻撃</button>
+        <button class="tab" data-tab="rbf" role="tab" aria-selected="false">リバースブルートフォース（パスワードスプレー）</button>
+      </div>
+
+      <!-- BF -->
+      <div class="tabcontent active" id="tab-bf" role="tabpanel">
+        <div class="hint hint-info">
+          💡 <strong>初学者向けヒント：</strong>総当たり攻撃は全ての文字の組み合わせを試します。ロックアウト閾値を1〜5の間で変えて、防御効果の違いを観察してみましょう！
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="bfTarget">標的ユーザー（ID）</label>
+            <input id="bfTarget" type="number" min="0" value="0" />
+            <small>単一ユーザーに対して総当たり攻撃</small>
+          </div>
+          <div class="field">
+            <label for="bfMaxTries">最大試行回数</label>
+            <input id="bfMaxTries" type="number" min="1" max="100000" value="10000" />
+            <small>aaaaaaaa, aaaaaaab, aaaaaaac...のように順次試行</small>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnRunBF">ブルートフォース開始</button>
+          <button id="btnStopBF" class="secondary">停止</button>
+        </div>
+
+        <div class="kpi" aria-live="polite">
+          <div class="kpi-item"><span id="bfGenerated">0</span><small>生成パスワード</small></div>
+          <div class="kpi-item"><span id="bfAttempts">0</span><small>送信数</small></div>
+          <div class="kpi-item"><span id="bfLocked">0</span><small>ロック発生</small></div>
+          <div class="kpi-item ok"><span id="bfSuccess">0</span><small>成功</small></div>
+          <div class="kpi-item time"><span id="bfTime">0.0s</span><small>経過時間</small></div>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div id="bfProgress" class="bar"></div>
+        </div>
+
+        <div class="log-container" id="bfLogContainer">
+          <div class="log-header">
+            <span>攻撃ログ</span>
+            <button id="btnClearBFLog" class="clear-log-btn">クリア</button>
+          </div>
+          <div class="scroll-indicator">手動スクロール中 (自動スクロール停止)</div>
+          <pre id="bfLog" class="log" aria-live="polite"></pre>
+        </div>
+      </div>
+
+      <!-- Dictionary Attack -->
+      <div class="tabcontent" id="tab-dict" role="tabpanel">
+        <div class="hint hint-info">
+          💡 <strong>初学者向けヒント：</strong>辞書攻撃は一般的なパスワードリストを使います。実際の攻撃では数百万語の辞書が使われることもあります。
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label for="dictTarget">標的ユーザー（ID）</label>
+            <input id="dictTarget" type="number" min="0" value="1" />
+            <small>単一ユーザーに対して辞書から試行</small>
+          </div>
+          <div class="field">
+            <label for="dictSize2">使用する辞書サイズ</label>
+            <input id="dictSize2" type="number" min="1" max="50" value="20" />
+            <small>上位n個の一般的なパスワードを試す</small>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnRunDict">辞書攻撃開始</button>
+          <button id="btnStopDict" class="secondary">停止</button>
+        </div>
+
+        <div class="kpi" aria-live="polite">
+          <div class="kpi-item"><span id="dictAttempts">0</span><small>試行数</small></div>
+          <div class="kpi-item"><span id="dictLocked">0</span><small>ロック発生</small></div>
+          <div class="kpi-item ok"><span id="dictSuccess">0</span><small>成功</small></div>
+          <div class="kpi-item time"><span id="dictTime">0.0s</span><small>経過時間</small></div>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div id="dictProgress" class="bar"></div>
+        </div>
+
+        <div class="log-container" id="dictLogContainer">
+          <div class="log-header">
+            <span>攻撃ログ</span>
+            <button id="btnClearDictLog" class="clear-log-btn">クリア</button>
+          </div>
+          <div class="scroll-indicator">手動スクロール中 (自動スクロール停止)</div>
+          <pre id="dictLog" class="log" aria-live="polite"></pre>
+        </div>
+      </div>
+
+      <!-- RBF -->
+      <div class="tabcontent" id="tab-rbf" role="tabpanel">
+        <div class="hint hint-warning">
+          ⚠️ <strong>重要：</strong>この攻撃手法は各ユーザーへの失敗回数が少ないため、通常のアカウント単位ロックアウトでは防げません。IPアドレス制限や異常検知が必要です。
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="rbfRounds">最大ラウンド数（辞書をn周）</label>
+            <input id="rbfRounds" type="number" min="1" max="100" value="5" />
+          </div>
+          <div class="field">
+            <label for="rbfBatch">1ラウンドあたりの対象ユーザー数（シャーディング）</label>
+            <input id="rbfBatch" type="number" min="1" max="100000" value="200" />
+            <small>超大量ユーザー想定の分割送出</small>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnRunRBF">リバースブルートフォース開始</button>
+          <button id="btnStopRBF" class="secondary">停止</button>
+        </div>
+
+        <div class="kpi" aria-live="polite">
+          <div class="kpi-item"><span id="rbfAttempts">0</span><small>試行数</small></div>
+          <div class="kpi-item"><span id="rbfLocked">0</span><small>ロック発生</small></div>
+          <div class="kpi-item ok"><span id="rbfCompromised">0</span><small>成功アカウント</small></div>
+          <div class="kpi-item time"><span id="rbfTime">0.0s</span><small>経過時間</small></div>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div id="rbfProgress" class="bar"></div>
+        </div>
+
+        <div class="log-container" id="rbfLogContainer">
+          <div class="log-header">
+            <span>攻撃ログ</span>
+            <button id="btnClearRBFLog" class="clear-log-btn">クリア</button>
+          </div>
+          <div class="scroll-indicator">手動スクロール中 (自動スクロール停止)</div>
+          <pre id="rbfLog" class="log" aria-live="polite"></pre>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer">
+      <div class="security-warning">
+        ⚠️ <strong>重要:</strong> このツールは教育目的の完全なシミュレーションです。実際のシステムに対する攻撃は違法行為です。
+      </div>
+      <div class="footer-links">
+        🔗 GitHubリポジトリはこちら（ <a href="https://github.com/ipusiron/reverse-bruteforce-demo" target="_blank" rel="noopener">ipusiron/reverse-bruteforce-demo</a> ）<br>
+        📚 セキュリティ学習は <a href="https://akademeia.info/?page_id=42163" target="_blank" rel="noopener">生成AIで作るセキュリティツール100</a> プロジェクトの一環です
+      </div>
+    </div>
+  </footer>
+
+  <!-- ヘルプモーダル -->
+  <div id="helpModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📚 ヘルプ・学習ガイド</h2>
+        <button id="closeModal" class="close-button" aria-label="閉じる">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h3>🎯 このツールについて</h3>
+        <p>3つの攻撃手法（ブルートフォース・辞書攻撃・リバースブルートフォース）の違いを視覚的に理解できる教育用デモツールです。</p>
+        
+        <h3>📖 3つの攻撃モード</h3>
+        <h4>1. ブルートフォース（総当たり攻撃）</h4>
+        <ul class="bullets">
+          <li><strong>手法：</strong> 8文字の全組み合わせを順次試行（aaaaaaaa, aaaaaaab, ...）</li>
+          <li><strong>特徴：</strong> 1人のユーザーに集中攻撃、ロックアウトが発生しやすい</li>
+          <li><strong>デモ設定：</strong> ロックアウト無効時は約21秒で成功</li>
+        </ul>
+        
+        <h4>2. 辞書攻撃</h4>
+        <ul class="bullets">
+          <li><strong>手法：</strong> よくあるパスワード（123456, password等）から順番に試行</li>
+          <li><strong>特徴：</strong> 人間が使いがちなパスワードに特化、効率的</li>
+          <li><strong>デモ設定：</strong> 辞書サイズ可変、デフォルト20件で3回目にヒット</li>
+        </ul>
+        
+        <h4>3. リバースブルートフォース（パスワードスプレー）</h4>
+        <ul class="bullets">
+          <li><strong>手法：</strong> 1つのパスワードを全ユーザーに試行、次のパスワードで再度全ユーザーに試行</li>
+          <li><strong>特徴：</strong> 各アカウントの失敗回数を分散、ロックアウト回避</li>
+          <li><strong>危険性：</strong> アカウント単位制限では防げない</li>
+        </ul>
+
+        <h3>🛡️ 防御の要点</h3>
+        <ul class="bullets">
+          <li><strong>多層防御：</strong> IP・デバイス・サブネット・グローバルレート制限</li>
+          <li><strong>パスワードポリシー：</strong> 共通・漏えいPW拒否、複雑性要求</li>
+          <li><strong>多要素認証：</strong> リスク検知時のMFA強制</li>
+          <li><strong>横断相関検知：</strong> 同一PW多アカウント試行の監視</li>
+          <li><strong>監査・可視化：</strong> リアルタイム異常検知とアラート</li>
+        </ul>
+
+        <h3>💡 使い方</h3>
+        <ol>
+          <li><strong>環境設定：</strong> ユーザー数・弱パスワード比率・ロックアウト設定を調整</li>
+          <li><strong>環境生成：</strong> 「環境を生成」で仮想環境を作成</li>
+          <li><strong>攻撃比較：</strong> 各タブで異なる攻撃手法を実行</li>
+          <li><strong>効果確認：</strong> KPI・ログで防御効果の違いを観察</li>
+          <li><strong>設定変更：</strong> ロックアウト有無を切り替えて効果を比較</li>
+        </ol>
+
+        <h3>🔍 観察ポイント</h3>
+        <ul class="bullets">
+          <li><strong>ロックアウト効果：</strong> 有効/無効での成功率・時間の違い</li>
+          <li><strong>攻撃手法比較：</strong> 各手法の特性とロックアウト発生パターン</li>
+          <li><strong>生成vs送信：</strong> ブルートフォースでの実際の通信量</li>
+          <li><strong>防御限界：</strong> アカウント単位制限の限界とその対策</li>
+        </ul>
+
+        <h3>⚠️ 注意事項</h3>
+        <p>このツールは教育目的の完全なシミュレーションです。実際のシステムへの攻撃は違法行為であり、絶対に行わないでください。</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
