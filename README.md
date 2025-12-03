@@ -1,11 +1,38 @@
 <!--
 ---
-title: Reverse Brute-force Demo
-category: web-security
-difficulty: 1
-description: A demo tool to visualize how reverse brute-force (password spraying) can bypass account lockout policies compared to traditional brute-force attacks. Intended for educational purposes only.
-tags: [bruteforce, reverse-bruteforce, password-spray, security, demo]
-demo: https://ipusiron.github.io/reverse-bruteforce-demo/
+id: day060
+slug: reverse-bruteforce-demo
+
+title: "Reverse Brute-force Demo"
+
+subtitle_ja: "リバースブルートフォース攻撃デモツール"
+subtitle_en: "Password Spraying Attack Visualization Tool"
+
+description_ja: "アカウント単位ロックアウトを導入している環境で、従来のブルートフォース攻撃とリバースブルートフォース攻撃（パスワードスプレー）の違いを直感的に理解できる教育用デモツール"
+description_en: "Educational demo tool to visualize how reverse brute-force (password spraying) can bypass account lockout policies compared to traditional brute-force attacks"
+
+category_ja:
+  - パスワード解析
+  - 認証
+category_en:
+  - Password Cracking
+  - Authentication
+
+difficulty: 2
+
+tags:
+  - bruteforce
+  - reverse-bruteforce
+  - password-spray
+  - lockout
+  - authentication
+  - visualization
+  - education
+
+repo_url: "https://github.com/ipusiron/reverse-bruteforce-demo"
+demo_url: "https://ipusiron.github.io/reverse-bruteforce-demo/"
+
+hub: true
 ---
 -->
 
@@ -292,10 +319,10 @@ $ john --wordlist=spray.txt hash.txt
 
 3. **実際のシナリオで考える**
    - 「自分の会社で同じ攻撃を受けたらどうなるか？」
-   - 「どのような対策が最も効果的か？」
+   - 「どのような対策がもっとも効果的か？」
 
 4. **段階的な理解**
-   - いきなり全てを理解しようとせず、1つずつ確実に
+   - いきなりすべてを理解しようとせず、1つずつ確実に
    - 疑問点はヘルプモーダルで再確認
 
 ### 🎯 学習目標チェックリスト

@@ -11,14 +11,17 @@ This is an educational web-based demonstration tool that visualizes the differen
 The application is a static single-page web application with:
 - **index.html**: Main HTML structure with simulation controls, attack mode tabs, and results display
 - **script.js**: Core simulation logic implementing both attack modes and environment generation
-- **style.css**: Dark-themed styling with custom CSS variables
+- **style.css**: Light-themed styling with CSS variables and gradient accents
 
-Key components:
-- **Environment Simulation**: Creates virtual users with weak/strong passwords and implements account lockout mechanisms
+Key components in script.js:
+- **Environment Simulation** (`makeEnvironment()`): Creates virtual users with weak/strong passwords and implements account lockout mechanisms via a simulated server object
 - **Attack Modes**:
-  - Traditional brute-force: Targets single user with password dictionary
-  - Reverse brute-force: Tests common passwords across all users
-- **Real-time Visualization**: Progress bars, KPI metrics, and activity logs
+  - Brute-force (`#btnRunBF`): Sequential password generation (aaaaaaaa, aaaaaaab...) targeting single user
+  - Dictionary attack (`#btnRunDict`): Uses `COMMON_PASSWORDS` array against single user
+  - Reverse brute-force (`#btnRunRBF`): Tests common passwords across all users in rounds
+- **Real-time Visualization**: Progress bars, KPI metrics, activity logs with smart auto-scroll
+
+Password assignment logic (line 28-49): User ID 0 gets a brute-force-crackable password (~4200 attempts), other weak users get dictionary passwords starting from index 2.
 
 ## Development Commands
 
@@ -26,7 +29,8 @@ This is a static website with no build process required. To run locally:
 
 ```bash
 # Open directly in browser
-open index.html
+start index.html  # Windows
+open index.html   # macOS
 
 # Or serve with any static server
 python -m http.server 8000
