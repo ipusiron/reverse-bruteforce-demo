@@ -334,7 +334,7 @@
       setText('dictSuccess', String(success));
       setProgress('dictProgress', (step.index + 1) / total);
       setText('dictTime', `${((performance.now() - start) / 1000).toFixed(1)}s`);
-      if (success) break;
+      if (success || locked) break; // 成功、またはロックされたら辞書攻撃は止まる（以後は送信できない）
       await sleep(Math.max(50, Math.floor(1000 / rate)));
     }
     if (!success) {
