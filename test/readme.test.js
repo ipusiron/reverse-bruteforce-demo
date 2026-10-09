@@ -150,3 +150,40 @@ test('表記: 禁止語がない。強調は1節に2カ所まで、箇条書き�
     assert.doesNotMatch(line, bad, line);
   }
 });
+
+test('ユースケースの「このツールならではの使い方」の数は計算部のシミュレーションと合う（日英）', () => {
+  const [ja, en] = [DOCS.ja.text, DOCS.en.text];
+  const run = (plan, env) => {
+    let now = 0;
+    const comp = new Set();
+    const locked = new Set();
+    for (const s of plan) {
+      const r = env.tryLogin(s.userId, s.password, now);
+      if (r.status === 'success') comp.add(s.userId);
+      if (r.justLocked) locked.add(s.userId);
+      now += 1;
+    }
+    return { comp: comp.size, locked: locked.size };
+  };
+  const make = (over) => C.makeEnvironment({ userCount: 50, weakRatio: 40, lockoutThreshold: 5, lockoutWindowSec: 900, lockoutEnabled: true, ...over });
+  // 1. しきい値＝ロックまでの失敗回数。ブルートフォース1人集中
+  const bfOn = run(C.bruteForcePlan(0, 5000), make({}));
+  const bfOff = run(C.bruteForcePlan(0, 5000), make({ lockoutEnabled: false }));
+  assert.deepEqual([bfOn.comp, bfOn.locked, bfOff.comp], [0, 1, 1]);
+  assert.ok(ja.includes('閾値を5にし') && ja.includes('4200回目で陥落1'));
+  assert.ok(en.includes('set the threshold to 5') && en.includes('on the 4,200th try'));
+  // 2. 全員スプレーの陥落: ロックありで5（＝閾値）、なしで19
+  const sprayOn = run(C.reverseBrutePlan(50, C.COMMON_PASSWORDS, C.DICT_MAX, 50), make({}));
+  const sprayOff = run(C.reverseBrutePlan(50, C.COMMON_PASSWORDS, C.DICT_MAX, 50), make({ lockoutEnabled: false }));
+  assert.deepEqual([sprayOn.comp, sprayOn.locked, sprayOff.comp], [5, 50, 19]);
+  assert.ok(ja.includes('陥落は5人') && ja.includes('19人から5人') && ja.includes('陥落は19人'));
+  assert.ok(en.includes('5 accounts fall') && en.includes('from 19 to 5') && en.includes('19 fall'));
+  // 3. 弱い比率 → 陥落 = weakCount - 1
+  const fall = [20, 40, 60].map((weakRatio) => {
+    const env = C.makeEnvironment({ userCount: 50, weakRatio, lockoutThreshold: 5, lockoutWindowSec: 900, lockoutEnabled: false });
+    return [env.weakCount, run(C.reverseBrutePlan(50, C.COMMON_PASSWORDS, C.DICT_MAX, 50), env).comp];
+  });
+  assert.deepEqual(fall, [[10, 9], [20, 19], [30, 29]]);
+  assert.ok(ja.includes('20・40・60%') && ja.includes('9・19・29人'));
+  assert.ok(en.includes('20, 40 and 60%') && en.includes('9, 19 and 29 of the 50 users'));
+});

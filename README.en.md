@@ -112,6 +112,12 @@ The lesson of this tool is that account-level lockout alone cannot stop password
 
 ## 🎯 Use cases
 
+### Ways of using this tool in particular
+
+- Reading the threshold as a sensitivity knob (statistics and detection-design classes): enable lockout, set the threshold to 5, and run a brute-force attack on one account; it locks after 5 failures and nothing falls (0 compromised). Disable lockout and it falls on the 4,200th try (1 compromised). This threshold is the sensitivity, how many failures count as abnormal; lowering it stops an attack sooner, but a legitimate user who mistypes trips it at the same count. You can check with numbers the same trade-off as the sensitivity of a spam filter or a fraud detector
+- Seeing the gap in a control measured on one axis (defense-in-depth classes): spray one password to all 50 users once each, working down the dictionary. Even with lockout enabled, 5 accounts fall, and these are the people who used the 5 most common passwords (the same count as the threshold). With it disabled, 19 fall. Per-account lockout cuts the damage from 19 to 5 but cannot reach 0. Just as per-IP rate limiting is slipped past by a botnet, a control counted on a single axis leaves a gap, which shows why detection on another axis (source, password, velocity) is needed
+- Seeing how the share of weak passwords sets the breach size (risk management and user education): disable lockout and let the spray over all users run to the end, and everyone using a dictionary password falls. With a weak share of 20, 40 and 60%, 9, 19 and 29 of the 50 users fall respectively (people with a strong password not in the dictionary survive, and one has a separate brute-force password). You can vary the population and confirm that the breach size grows roughly in proportion to the share of people reusing common passwords
+
 ### Learning and teaching
 
 - In a security class or training, the teacher toggles lockout on and off in the same environment and shows how the three methods fare. Learners can follow "why spraying slips past lockout" in the KPIs and the log
